@@ -147,7 +147,6 @@ contract FlightSuretyApp {
             require(flightSuretyData.getAirlineStatus(msg.sender) == REGISTERED, "Airline must be submitted by another airline until 5 participants reached");
             // register airline in data contract
             flightSuretyData.registerAirline(airlineAddress, airlineName, REGISTERED);
-            flightSuretyData.approveAirline(airlineAddress);
             success = true;
             votes = 0;
         } else {
@@ -174,10 +173,11 @@ contract FlightSuretyApp {
     {
         require(flightSuretyData.getAirlineStatus(airlineAddress) != UNREGISTERED, "Airline must be registered prior to funding");
         // Cast address to payable address
-        address payable flightSuretyDataAddressPayable = _make_payable(address(flightSuretyData));
+        // address payable flightSuretyDataAddressPayable = _make_payable(address(flightSuretyData));
         // address payable dataContractAddress = address(uint160(address(flightSuretyData)));
-        flightSuretyDataAddressPayable.transfer(msg.value);
-        return flightSuretyData.fundAirline{value:msg.value}(airlineAddress);
+        // flightSuretyDataAddressPayable.transfer({value: msg.value, from: airlineAddress});
+        flightSuretyData.fundAirline{value:msg.value}(airlineAddress);
+        return flightSuretyData.getAirlineFunds(airlineAddress);
     }
 
     /**
@@ -190,18 +190,21 @@ contract FlightSuretyApp {
                             )
                             external
                             requireIsOperational
+                            returns (uint256)
     {
         // voters must be regisitered
-        require(flightSuretyData.getAirlineStatus(msg.sender) == REGISTERED, "Airline must be registered to vote");
+        require(flightSuretyData.isAirlineRegistered(msg.sender), "Airline must be registered to vote");
         // airline being voted on must exist
-        require(flightSuretyData.getAirlineStatus(airlineAddress) != UNREGISTERED, "Airline must exist to be voted on");
-        flightSuretyData.voteForAirline(airlineAddress);
+        require(flightSuretyData.isAirline(airlineAddress), "Airline must exist to be voted on");
+        flightSuretyData.voteForAirline(msg.sender, airlineAddress);
 
-        if (flightSuretyData.getAirlineVoteCount(airlineAddress) >= flightSuretyData.getRegisteredAirlinesCount().div(2)) {
+        uint256 airlineVotes = flightSuretyData.getAirlineVoteCount(airlineAddress);
+
+        if (airlineVotes >= flightSuretyData.getRegisteredAirlinesCount().div(2)) {
             flightSuretyData.approveAirline(airlineAddress);
             // TODO: emit airline registered event
         }
-        
+        return airlineVotes;
     }
 
 
@@ -449,12 +452,14 @@ contract FlightSuretyApp {
 // Data contract interface
 interface IFlightSuretyData {
     function isOperational() external view returns(bool);
-    function registerAirline(address airlineAddress, string calldata airlineName, uint8 airlineStatus) external returns (bool, uint256);
+    function isAirline(address airlineAddress) external view returns(bool);
+    function registerAirline(address airlineAddress, string calldata airlineName, uint8 airlineStatus) external;
     function getRegisteredAirlinesCount() external view returns (uint256);
     function getAirlineVoteCount(address airlineAddress) external view returns (uint256);
     function getAirlineStatus(address airlineAddress) external view returns (uint8);
     function getAirlineFunds(address airlineAddress) external view returns (uint256);
     function approveAirline(address airlineAddress) external;
-    function voteForAirline(address airlineAddress) external;
+    function voteForAirline(address votingAirlineAddress, address airlineAddress) external;
     function fundAirline(address airlineAddress) external payable returns (uint256);
+    function isAirlineRegistered(address airlineAddress) external view returns(bool);
 }

@@ -46,8 +46,7 @@ contract FlightSuretyData {
                                     address firstAirlineAddress,
                                     string memory firstAirlineName
                                 )
-                                payable
-                                public 
+                                payable 
     {
         contractOwner = msg.sender;
 
@@ -169,8 +168,13 @@ contract FlightSuretyData {
     }
 
     /* get vote count */
-    function getAirlineVoteCount(address airlineAddress) public view returns(uint256) {
+    function getAirlineVoteCount(address airlineAddress) external view returns(uint256) {
         return airlineVotes[airlineAddress].length;
+    }
+
+    /* check if airline is registered */
+    function isAirlineRegistered(address airlineAddress) external view returns(bool) {
+        return airlines[airlineAddress].status == REGISTERED;
     }
 
     /********************************************************************************************/
@@ -190,7 +194,6 @@ contract FlightSuretyData {
                             )
                             external
                             requireIsOperational
-                            requireIsAuthorized
     {
         require(airlineAddress != address(0), "Airline must have a valid wallet.");
         _registerAirline(airlineAddress, airlineName, airlineStatus);
@@ -211,6 +214,9 @@ contract FlightSuretyData {
             status: airlineStatus,
             funds: 0
         });
+        if (airlineStatus == REGISTERED) {
+            registeredAirlinesCount++;
+        }
     }
 
     function approveAirline
@@ -219,7 +225,6 @@ contract FlightSuretyData {
                             )
                             external
                             requireIsOperational
-                            requireIsAuthorized
     {
         airlines[airlineAddress].status = REGISTERED;
         registeredAirlinesCount++;
@@ -232,22 +237,33 @@ contract FlightSuretyData {
                             external
                             payable
                             requireIsOperational
-                            requireIsAuthorized
                             returns(uint256)
     {
+        payable(address(this)).transfer(msg.value);
         uint256 currentFunds = airlines[airlineAddress].funds;
-        currentFunds.add(msg.value);
+        currentFunds = currentFunds.add(msg.value);
         airlines[airlineAddress].funds = currentFunds;
         return currentFunds;
     }
 
-    function voteForAirline(address airlineAddress) external requireIsOperational requireIsAuthorized
+    function voteForAirline(address votingAirlineAddress, address airlineAddress) external requireIsOperational
     {    
         // make sure that each airline only votes once
-        for (uint256 i = 0; i < airlineVotes[airlineAddress].length; i++) {
-            require(airlineVotes[airlineAddress][i] != msg.sender, "Airline has already voted for this applicant");
+        uint256 voteCounter = airlineVotes[airlineAddress].length;
+        if (voteCounter == 0) {
+            airlineVotes[airlineAddress] = new address[](0);
         }
-        airlineVotes[airlineAddress].push(msg.sender);
+        // check for double voting
+        uint256 i = 0;
+        for (; i < voteCounter; i++) {
+            if (airlineVotes[airlineAddress][i] == votingAirlineAddress) {
+                break;
+            }
+        }
+        // no double voting if msg.sender not found
+        if (i == voteCounter) {
+            airlineVotes[airlineAddress].push(msg.sender);
+        }
     }
 
 
