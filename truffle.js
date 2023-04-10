@@ -1,4 +1,4 @@
-var HDWalletProvider = require("@truffle/hdwallet-provider");
+// var HDWalletProvider = require("@truffle/hdwallet-provider");
 var mnemonic = "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat";
 
 module.exports = {
@@ -8,11 +8,15 @@ module.exports = {
       port: 8545,            // Standard Ganache UI port
       network_id: "*", 
       gas: 4600000
-    }
+    },
+    test: {
+      network_id: '*',
+      accounts: 50,
+    },
   },
   compilers: {
     solc: {
-      version: "0.8.3"
+      version: "0.5.0"
     }
   }
 };
